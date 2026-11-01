@@ -432,11 +432,8 @@ const app = (() => {
   }
 
   function toggleFullscreen() {
-    const section = document.getElementById('player-section')
-    const vid = document.getElementById('video-player')
-    const target = vid.style.display !== 'none' ? vid : section
     if (!document.fullscreenElement) {
-      target.requestFullscreen().catch(() => section.requestFullscreen())
+      document.documentElement.requestFullscreen()
     } else {
       document.exitFullscreen()
     }

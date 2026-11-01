@@ -1,47 +1,37 @@
 const app = (() => {
-  let state = {
+  const $ = id => document.getElementById(id)
+
+  const state = {
+    heroItem: null,
     currentItem: null,
     currentDetails: null,
     currentSeason: 1,
-    heroItem: null,
     client: null,
     activeTorrent: null,
-    searchTimer: null,
     plyr: null,
+    searchTimer: null,
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────────
+  // ── utils ──────────────────────────────────────────────────────────────────
 
-  function getSetting(k) { return localStorage.getItem(k) || '' }
-  function setSetting(k, v) { localStorage.setItem(k, v) }
-
-  function toast(msg, dur = 3000) {
-    const el = document.getElementById('toast')
+  function toast(msg, dur = 3500) {
+    const el = $('toast')
     el.textContent = msg
     el.classList.add('show')
     setTimeout(() => el.classList.remove('show'), dur)
   }
 
-  function noPoster() { return 'no-poster.svg' }
-
-  function safeImg(img) {
-    img.onerror = () => { img.onerror = null; img.src = noPoster() }
+  function safeImg(img, fallback = 'no-poster.svg') {
+    img.onerror = () => { img.onerror = null; img.src = fallback }
   }
 
-  // ── init ─────────────────────────────────────────────────────────────────
+  // ── init ───────────────────────────────────────────────────────────────────
 
-  async function init() {
-    showHome()
+  function init() {
+    $('page-home').classList.remove('hidden')
     loadHome()
     bindNav()
     bindSearch()
-    document.getElementById('btn-settings').onclick = openSettings
-  }
-
-  function showHome() {
-    document.getElementById('onboarding').style.display = 'none'
-    document.getElementById('home-page').classList.remove('hidden')
-    document.getElementById('navbar').style.display = ''
   }
 
   function bindNav() {
@@ -49,40 +39,32 @@ const app = (() => {
       btn.onclick = () => {
         document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'))
         btn.classList.add('active')
-        const page = btn.dataset.page
-        document.getElementById('search-page').classList.add('hidden')
-        document.getElementById('home-page').classList.remove('hidden')
-        if (page === 'home') loadHome()
-        else if (page === 'movies') loadPage('movies')
-        else if (page === 'series') loadPage('series')
-        else if (page === 'anime') loadPage('anime')
+        $('page-search').classList.add('hidden')
+        $('page-home').classList.remove('hidden')
+        const pg = btn.dataset.page
+        if (pg === 'home') loadHome()
+        else loadCatalog(pg)
       }
     })
   }
 
   function bindSearch() {
-    const inp = document.getElementById('search-input')
+    const inp = $('search-input')
     inp.addEventListener('input', () => {
       clearTimeout(state.searchTimer)
       const q = inp.value.trim()
-      if (!q) {
-        document.getElementById('search-page').classList.add('hidden')
-        document.getElementById('home-page').classList.remove('hidden')
-        return
-      }
-      state.searchTimer = setTimeout(() => doSearch(q), 400)
+      if (!q) { $('page-search').classList.add('hidden'); $('page-home').classList.remove('hidden'); return }
+      state.searchTimer = setTimeout(() => search(q), 350)
     })
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { inp.value = ''; inp.dispatchEvent(new Event('input')) }
-    })
+    inp.addEventListener('keydown', e => { if (e.key === 'Escape') { inp.value = ''; inp.dispatchEvent(new Event('input')) } })
   }
 
-  // ── home ─────────────────────────────────────────────────────────────────
+  // ── home ───────────────────────────────────────────────────────────────────
 
   async function loadHome() {
-    const sections = document.getElementById('sections')
-    sections.innerHTML = ''
-    const rows = [
+    const rows = document.getElementById('rows')
+    rows.innerHTML = ''
+    const defs = [
       { title: 'Tendances', fn: () => TMDB.trending('all') },
       { title: 'Films populaires', fn: () => TMDB.popular('movie') },
       { title: 'Séries populaires', fn: () => TMDB.popular('tv') },
@@ -90,344 +72,352 @@ const app = (() => {
       { title: 'Top Films', fn: () => TMDB.topRated('movie') },
       { title: 'Top Séries', fn: () => TMDB.topRated('tv') },
     ]
-    rows.forEach(r => {
-      const sec = document.createElement('div')
-      sec.className = 'section'
-      sec.innerHTML = `<div class="section-title">${r.title}</div><div class="cards-row" id="row-${r.title.replace(/\s/g,'')}"></div>`
-      sections.appendChild(sec)
-      loadRowAsync(sec.querySelector('.cards-row'), r.fn)
+    defs.forEach(d => {
+      const row = document.createElement('div')
+      row.className = 'row'
+      row.innerHTML = `<div class="row-title">${d.title}</div><div class="row-cards"></div>`
+      rows.appendChild(row)
+      fillRow(row.querySelector('.row-cards'), d.fn)
     })
     loadHero()
   }
 
-  async function loadPage(type) {
-    const sections = document.getElementById('sections')
-    sections.innerHTML = ''
-    let rows = []
-    if (type === 'movies') rows = [
+  async function loadCatalog(type) {
+    const rows = document.getElementById('rows')
+    rows.innerHTML = ''
+    let defs = []
+    if (type === 'movies') defs = [
       { title: 'Films populaires', fn: () => TMDB.popular('movie') },
       { title: 'Top Films', fn: () => TMDB.topRated('movie') },
       { title: 'Tendances films', fn: () => TMDB.trending('movie') },
     ]
-    else if (type === 'series') rows = [
+    else if (type === 'series') defs = [
       { title: 'Séries populaires', fn: () => TMDB.popular('tv') },
       { title: 'Top Séries', fn: () => TMDB.topRated('tv') },
       { title: 'Tendances séries', fn: () => TMDB.trending('tv') },
     ]
-    else if (type === 'anime') rows = [
+    else if (type === 'anime') defs = [
       { title: 'Animés populaires', fn: () => TMDB.anime() },
       { title: 'Films animés', fn: () => TMDB.animeMovies() },
     ]
-    rows.forEach(r => {
-      const sec = document.createElement('div')
-      sec.className = 'section'
-      sec.innerHTML = `<div class="section-title">${r.title}</div><div class="cards-row"></div>`
-      sections.appendChild(sec)
-      loadRowAsync(sec.querySelector('.cards-row'), r.fn)
+    defs.forEach(d => {
+      const row = document.createElement('div')
+      row.className = 'row'
+      row.innerHTML = `<div class="row-title">${d.title}</div><div class="row-cards"></div>`
+      rows.appendChild(row)
+      fillRow(row.querySelector('.row-cards'), d.fn)
     })
   }
 
-  async function loadRowAsync(container, fetchFn) {
+  async function fillRow(container, fetchFn) {
     const skels = Array.from({ length: 8 }, () => {
-      const d = document.createElement('div')
-      d.className = 'skel-card skeleton'
-      container.appendChild(d)
-      return d
+      const s = document.createElement('div'); s.className = 'skel'; container.appendChild(s); return s
     })
     try {
       const data = await fetchFn()
-      const items = data.results || []
       skels.forEach(s => s.remove())
-      items.forEach(item => {
-        const div = document.createElement('div')
-        div.className = 'card'
-        div.innerHTML = `<img src="${TMDB.poster(item.poster_path)}" alt="${TMDB.title(item)}" loading="lazy"><div class="card-title">${TMDB.title(item)}</div>`
-        safeImg(div.querySelector('img'))
-        div.onclick = () => openDetails(item)
-        container.appendChild(div)
-      })
+      ;(data.results || []).forEach(item => container.appendChild(makeCard(item)))
     } catch { skels.forEach(s => s.remove()) }
+  }
+
+  function makeCard(item) {
+    const div = document.createElement('div')
+    div.className = 'card'
+    const img = document.createElement('img')
+    img.src = TMDB.poster(item.poster_path)
+    img.alt = TMDB.title(item)
+    img.loading = 'lazy'
+    safeImg(img)
+    const title = document.createElement('div')
+    title.className = 'card-title'
+    title.textContent = TMDB.title(item)
+    div.appendChild(img)
+    div.appendChild(title)
+    div.onclick = () => openDetail(item)
+    return div
   }
 
   async function loadHero() {
     try {
       const data = await TMDB.trending('all')
-      const item = (data.results || [])[0]
+      const item = (data.results || [])[Math.floor(Math.random() * 5)]
       if (!item) return
       state.heroItem = item
       const bd = TMDB.backdrop(item.backdrop_path)
-      if (bd) document.getElementById('hero-img').src = bd
-      document.getElementById('hero-title').textContent = TMDB.title(item)
-      document.getElementById('hero-meta').textContent = `${TMDB.year(item)} · ${TMDB.type(item) === 'movie' ? 'Film' : 'Série'}`
-      document.getElementById('hero-desc').textContent = item.overview || ''
+      if (bd) $('hero-img').src = bd
+      $('hero-title').textContent = TMDB.title(item)
+      $('hero-desc').textContent = item.overview || ''
     } catch {}
   }
 
-  function playHero() {
-    if (state.heroItem) openDetails(state.heroItem)
-  }
+  function playHero() { if (state.heroItem) openDetail(state.heroItem) }
+  function playHeroInfo() { if (state.heroItem) openDetail(state.heroItem) }
 
-  // ── search ───────────────────────────────────────────────────────────────
+  // ── search ─────────────────────────────────────────────────────────────────
 
-  async function doSearch(query) {
-    document.getElementById('home-page').classList.add('hidden')
-    document.getElementById('search-page').classList.remove('hidden')
-    const grid = document.getElementById('search-grid')
-    document.getElementById('search-heading').textContent = `"${query}"`
-    grid.innerHTML = Array.from({ length: 10 }, () => `<div class="skel-card skeleton" style="aspect-ratio:2/3"></div>`).join('')
+  async function search(query) {
+    $('page-home').classList.add('hidden')
+    $('page-search').classList.remove('hidden')
+    const grid = $('search-grid')
+    $('search-heading').innerHTML = `Résultats pour <em>"${query}"</em>`
+    grid.innerHTML = Array.from({length:10},()=>`<div class="skel" style="aspect-ratio:2/3;flex:none;width:100%"></div>`).join('')
     try {
       const data = await TMDB.search(query)
       grid.innerHTML = ''
-      const items = (data.results || []).filter(i => i.poster_path && (i.media_type === 'movie' || i.media_type === 'tv'))
-      if (!items.length) { grid.innerHTML = '<p style="color:var(--text2)">Aucun résultat.</p>'; return }
-      items.forEach(item => {
-        const div = document.createElement('div')
-        div.className = 'card'
-        div.innerHTML = `<img src="${TMDB.poster(item.poster_path)}" alt="${TMDB.title(item)}" loading="lazy"><div class="card-title">${TMDB.title(item)}</div>`
-        safeImg(div.querySelector('img'))
-        div.onclick = () => openDetails(item)
-        grid.appendChild(div)
-      })
-    } catch { grid.innerHTML = '<p style="color:var(--text2)">Erreur de recherche.</p>' }
+      const items = (data.results||[]).filter(i => i.poster_path && (i.media_type==='movie'||i.media_type==='tv'))
+      if (!items.length) { grid.innerHTML = '<p style="color:var(--text2);grid-column:1/-1">Aucun résultat.</p>'; return }
+      items.forEach(item => grid.appendChild(makeCard(item)))
+    } catch { grid.innerHTML = '<p style="color:var(--text2);grid-column:1/-1">Erreur de recherche.</p>' }
   }
 
-  // ── detail modal ─────────────────────────────────────────────────────────
+  // ── detail modal ───────────────────────────────────────────────────────────
 
-  async function openDetails(item) {
+  async function openDetail(item) {
     state.currentItem = item
     state.currentDetails = null
     const type = TMDB.type(item)
-    document.getElementById('modal-bg').classList.add('open')
-    document.getElementById('modal-seasons').style.display = 'none'
-    document.getElementById('modal-title').textContent = TMDB.title(item)
-    document.getElementById('modal-meta').textContent = TMDB.year(item)
-    document.getElementById('modal-desc').textContent = item.overview || ''
-    document.getElementById('modal-actions').innerHTML = '<span style="color:var(--text2);font-size:.85rem">Chargement…</span>'
+    $('d-title').textContent = TMDB.title(item)
+    $('d-meta').innerHTML = `<span class="meta-tag">${TMDB.year(item)}</span><span class="meta-tag">${type === 'movie' ? 'Film' : 'Série'}</span>`
+    $('d-desc').textContent = item.overview || ''
+    $('d-actions').innerHTML = '<span style="color:var(--text2);font-size:.85rem">Chargement…</span>'
+    $('d-seasons').innerHTML = ''
 
     const poster = TMDB.poster(item.poster_path)
-    const pi = document.getElementById('modal-poster')
-    pi.src = poster; safeImg(pi)
+    const pi = $('d-poster'); pi.src = poster; safeImg(pi)
+    $('d-backdrop').src = TMDB.backdrop(item.backdrop_path) || ''
+
+    $('modal-detail').classList.add('open')
 
     try {
       const d = await TMDB.details(item.id, type)
       state.currentDetails = d
-      const bd = TMDB.backdrop(d.backdrop_path || item.backdrop_path)
-      if (bd) { const bi = document.getElementById('modal-backdrop'); bi.src = bd; safeImg(bi) }
 
-      const genres = (d.genres || []).map(g => g.name).join(', ')
-      const rating = d.vote_average ? `⭐ ${d.vote_average.toFixed(1)}` : ''
-      document.getElementById('modal-meta').textContent = [TMDB.year(item), genres, rating].filter(Boolean).join(' · ')
-      document.getElementById('modal-desc').textContent = d.overview || item.overview || ''
+      if (d.backdrop_path) $('d-backdrop').src = TMDB.backdrop(d.backdrop_path)
 
-      const actions = document.getElementById('modal-actions')
+      const genres = (d.genres||[]).map(g=>`<span class="meta-tag">${g.name}</span>`).join('')
+      const rat = d.vote_average ? `<span class="meta-tag rating">⭐ ${d.vote_average.toFixed(1)}</span>` : ''
+      const yr = `<span class="meta-tag">${TMDB.year(item)}</span>`
+      const tp = `<span class="meta-tag">${type === 'movie' ? 'Film' : 'Série'}</span>`
+      $('d-meta').innerHTML = yr + tp + genres + rat
+      $('d-desc').textContent = d.overview || item.overview || ''
+
       if (type === 'tv' || type === 'anime') {
-        actions.innerHTML = ''
-        loadSeasons(d)
+        $('d-actions').innerHTML = ''
+        buildSeasons(d)
       } else {
-        actions.innerHTML = `<button class="btn-play" onclick="app.showSources()"><svg width="13" height="13" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg> Regarder</button>`
+        $('d-actions').innerHTML = `<button class="btn-primary" onclick="app.showSources()"><svg width="13" height="13" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg> Regarder</button>`
       }
     } catch {
-      document.getElementById('modal-actions').innerHTML = `<button class="btn-play" onclick="app.showSources()">Regarder</button>`
+      $('d-actions').innerHTML = `<button class="btn-primary" onclick="app.showSources()">Regarder</button>`
     }
   }
 
-  function closeModal() {
-    document.getElementById('modal-bg').classList.remove('open')
-  }
+  function closeDetail() { $('modal-detail').classList.remove('open') }
 
-  function loadSeasons(d) {
-    const seasons = (d.seasons || []).filter(s => s.season_number > 0)
+  function buildSeasons(d) {
+    const seasons = (d.seasons||[]).filter(s => s.season_number > 0)
     if (!seasons.length) {
-      document.getElementById('modal-actions').innerHTML = `<button class="btn-play" onclick="app.showSources(1,1)">Regarder</button>`
+      $('d-actions').innerHTML = `<button class="btn-primary" onclick="app.showSources(1,1)">Regarder</button>`
       return
     }
-    const container = document.getElementById('modal-seasons')
-    container.style.display = ''
+    const wrap = $('d-seasons')
     const sel = document.createElement('select')
     sel.className = 'season-select'
-    seasons.forEach(s => {
-      const opt = document.createElement('option')
-      opt.value = s.season_number
-      opt.textContent = `Saison ${s.season_number}`
-      sel.appendChild(opt)
-    })
+    seasons.forEach(s => { const o = document.createElement('option'); o.value = s.season_number; o.textContent = `Saison ${s.season_number}`; sel.appendChild(o) })
     const epGrid = document.createElement('div')
-    epGrid.className = 'episodes-grid'
-    container.innerHTML = ''
-    container.appendChild(sel)
-    container.appendChild(epGrid)
+    epGrid.className = 'ep-grid'
+    wrap.appendChild(sel)
+    wrap.appendChild(epGrid)
 
-    async function loadEps(seasonNum) {
-      state.currentSeason = seasonNum
-      epGrid.innerHTML = '<span style="color:var(--text2);font-size:.85rem">Chargement…</span>'
+    async function loadEps(n) {
+      state.currentSeason = n
+      epGrid.innerHTML = '<span style="color:var(--text2);font-size:.85rem;padding:8px 0;display:block">Chargement…</span>'
       try {
-        const sd = await TMDB.season(d.id, seasonNum)
+        const sd = await TMDB.season(d.id, n)
         epGrid.innerHTML = ''
-        ;(sd.episodes || []).forEach(ep => {
+        ;(sd.episodes||[]).forEach(ep => {
           const div = document.createElement('div')
           div.className = 'ep-card'
-          div.innerHTML = `<div class="ep-num">S${String(seasonNum).padStart(2,'0')}E${String(ep.episode_number).padStart(2,'0')}</div><div class="ep-name">${ep.name || 'Épisode ' + ep.episode_number}</div>`
-          div.onclick = () => { closeModal(); showSources(seasonNum, ep.episode_number) }
+          div.innerHTML = `<div class="ep-num">S${String(n).padStart(2,'0')}E${String(ep.episode_number).padStart(2,'0')}</div><div class="ep-name">${ep.name||'Épisode '+ep.episode_number}</div>`
+          div.onclick = () => { closeDetail(); showSources(n, ep.episode_number) }
           epGrid.appendChild(div)
         })
-      } catch { epGrid.innerHTML = '<span style="color:var(--text2)">Erreur</span>' }
+      } catch { epGrid.innerHTML = '<span style="color:var(--text2);font-size:.85rem">Erreur</span>' }
     }
 
     sel.onchange = () => loadEps(parseInt(sel.value))
     loadEps(seasons[0].season_number)
   }
 
-  // ── source picker ────────────────────────────────────────────────────────
+  // ── source picker ──────────────────────────────────────────────────────────
 
   async function showSources(season, episode) {
     const item = state.currentItem
-    const details = state.currentDetails
     if (!item) return
-    closeModal()
+    closeDetail()
 
-    document.getElementById('source-modal').classList.add('open')
-    document.getElementById('source-title').textContent = TMDB.title(item)
-    document.getElementById('source-sub').textContent = season ? `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}` : 'Sélectionne la qualité'
-    const list = document.getElementById('source-list')
-    list.innerHTML = '<span style="color:var(--text2);font-size:.85rem;padding:8px">Recherche des sources…</span>'
+    $('src-title').textContent = TMDB.title(item)
+    $('src-sub').textContent = season ? `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}` : ''
+    $('src-list').innerHTML = `<div class="src-loading"><div class="src-spinner"></div>Recherche des sources…</div>`
+    $('modal-source').classList.add('open')
 
     const type = TMDB.type(item)
-    const imdbId = details ? TMDB.imdbId(details) : null
+    const details = state.currentDetails || {}
+    const imdbId = TMDB.imdbId(details)
+    const tmdbId = item.id
 
-    // embed fallbacks first (always available)
-    const embeds = Sources.embedUrls(imdbId, item.id, type === 'tv' ? 'tv' : 'movie', season, episode)
+    const [torrents, embeds] = await Promise.all([
+      Sources.getAllTorrent(item, details, season, episode).catch(() => []),
+      Promise.resolve(Sources.embedUrls(imdbId, tmdbId, type === 'tv' ? 'tv' : 'movie', season, episode)),
+    ])
 
-    // torrent search
-    let torrents = []
-    try { torrents = await Sources.getAllTorrent(item, details || {}, season, episode) } catch {}
-
-    list.innerHTML = ''
+    $('src-list').innerHTML = ''
 
     if (!torrents.length && !embeds.length) {
-      list.innerHTML = '<span style="color:var(--text2);font-size:.85rem;padding:8px">Aucune source trouvée.</span>'
+      $('src-list').innerHTML = '<p class="src-loading">Aucune source trouvée.</p>'
       return
     }
 
-    torrents.forEach(t => {
-      const div = document.createElement('div')
-      div.className = 'source-item'
-      const badge = t.fr
-        ? `<div class="src-badge vf">VF 🇫🇷</div>`
-        : `<div class="src-badge">${t.seeds ? t.seeds + ' seeds' : t.source.toUpperCase()}</div>`
-      div.innerHTML = `${badge}<div class="src-info"><div class="src-name">${t.label}</div><div class="src-detail">${t.size || ''}${t.seeds ? ' · ' + t.seeds + ' seeds' : ''}</div></div>`
-      div.onclick = () => { closeSourceModal(); startStream(t.magnet, TMDB.title(item)) }
-      list.appendChild(div)
-    })
+    if (torrents.length) {
+      const hdr = document.createElement('div')
+      hdr.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px'
+      hdr.textContent = `Torrents (${torrents.length})`
+      $('src-list').appendChild(hdr)
+      torrents.forEach(t => $('src-list').appendChild(makeSrcItem(t, () => { closeSource(); startStream(t.magnet, TMDB.title(item)) })))
+    }
 
-    embeds.forEach(e => {
-      const div = document.createElement('div')
-      div.className = 'source-item'
-      div.innerHTML = `<div class="src-badge embed">${e.label}</div><div class="src-info"><div class="src-name">${e.label}</div><div class="src-detail">Lecteur intégré</div></div>`
-      div.onclick = () => { closeSourceModal(); startEmbed(e.url, TMDB.title(item)) }
-      list.appendChild(div)
-    })
+    if (embeds.length) {
+      const hdr = document.createElement('div')
+      hdr.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px;margin-top:4px'
+      hdr.textContent = `Lecteurs intégrés (${embeds.length})`
+      $('src-list').appendChild(hdr)
+      embeds.forEach(e => $('src-list').appendChild(makeEmbedItem(e, () => { closeSource(); startEmbed(e.url, TMDB.title(item)) })))
+    }
   }
 
-  function closeSourceModal() {
-    document.getElementById('source-modal').classList.remove('open')
+  function makeSrcItem(t, onclick) {
+    const div = document.createElement('div')
+    div.className = 'src-item'
+    const lang = t.fr ? (t.label.match(/VOSTFR/i) ? 'vostfr' : 'vf') : 'vo'
+    const langBadge = lang === 'vf' ? '<span class="badge vf">VF 🇫🇷</span>'
+                    : lang === 'vostfr' ? '<span class="badge vostfr">VOSTFR</span>'
+                    : '<span class="badge vo">VO</span>'
+    const q = _quality(t.label)
+    const qBadge = q === '4K' ? '<span class="badge q4k">4K</span>'
+                 : q === '1080p' ? '<span class="badge q1080">1080p</span>'
+                 : q === '720p' ? '<span class="badge q720">720p</span>' : ''
+    div.innerHTML = `
+      <div class="src-badges">${langBadge}${qBadge}</div>
+      <div class="src-info">
+        <div class="src-name">${t.label}</div>
+        <div class="src-detail">${[t.size, t.seeds ? t.seeds+' seeds' : '', t.source?.toUpperCase()].filter(Boolean).join(' · ')}</div>
+      </div>`
+    div.onclick = onclick
+    return div
   }
 
-  // ── player ───────────────────────────────────────────────────────────────
+  function makeEmbedItem(e, onclick) {
+    const div = document.createElement('div')
+    div.className = 'src-item'
+    div.innerHTML = `
+      <div class="src-badges"><span class="badge embed">${e.label}</span></div>
+      <div class="src-info">
+        <div class="src-name">${e.label}</div>
+        <div class="src-detail">Lecteur intégré · audio variable</div>
+      </div>`
+    div.onclick = onclick
+    return div
+  }
 
-  function _initPlyr() {
+  function closeSource() { $('modal-source').classList.remove('open') }
+
+  // ── player ─────────────────────────────────────────────────────────────────
+
+  function _plyr() {
     if (state.plyr) return state.plyr
-    const vid = document.getElementById('video-player')
-    state.plyr = new Plyr(vid, {
+    state.plyr = new Plyr($('vid'), {
       controls: ['play-large','play','rewind','fast-forward','progress','current-time','duration','mute','volume','captions','settings','fullscreen'],
       settings: ['captions','quality','speed'],
       captions: { active: true, language: 'fr', update: true },
-      i18n: { play: 'Lecture', pause: 'Pause', mute: 'Muet', settings: 'Paramètres', fullscreen: 'Plein écran' }
+      i18n: { play:'Lecture', pause:'Pause', mute:'Muet', settings:'Paramètres', fullscreen:'Plein écran' },
     })
     return state.plyr
   }
 
   function openPlayer(title) {
-    document.getElementById('player-title').textContent = title
-    document.getElementById('player-section').classList.add('open')
-    document.getElementById('ps-text').textContent = 'Connexion…'
-    document.getElementById('ps-bar').style.width = '0%'
-    document.getElementById('ps-peers').textContent = ''
+    $('player-title').textContent = title
+    $('player').classList.add('open')
+    $('dl-fill').style.width = '0'
+    $('dl-text').textContent = 'Connexion…'
+    $('dl-peers').textContent = ''
   }
 
   function closePlayer() {
-    const vid = document.getElementById('video-player')
-    const emb = document.getElementById('embed-player')
-    if (state.plyr) { state.plyr.pause(); state.plyr.source = null }
-    else { vid.pause(); vid.src = '' }
-    vid.style.display = ''
-    emb.src = ''; emb.style.display = 'none'
-    document.getElementById('player-section').classList.remove('open')
+    if (state.plyr) { state.plyr.pause() }
+    else { const v = $('vid'); v.pause(); v.src = '' }
+    $('emb').src = ''; $('emb').style.display = 'none'
+    $('vid').style.display = ''
+    $('player').classList.remove('open')
     if (state.activeTorrent) { state.activeTorrent.destroy(); state.activeTorrent = null }
   }
 
   function startEmbed(url, title) {
     openPlayer(title)
-    const vid = document.getElementById('video-player')
-    const emb = document.getElementById('embed-player')
-    vid.style.display = 'none'
-    emb.style.display = ''
+    $('vid').style.display = 'none'
+    const emb = $('emb')
+    emb.style.display = 'block'
     emb.src = url
-    document.getElementById('ps-text').textContent = 'Lecteur intégré'
-    document.getElementById('ps-bar').style.width = '100%'
+    $('dl-text').textContent = 'Lecteur intégré'
+    $('dl-fill').style.width = '100%'
   }
 
   async function startStream(magnet, title) {
     openPlayer(title)
-    document.getElementById('ps-text').textContent = 'Connexion aux pairs…'
+    $('dl-text').textContent = 'Connexion aux pairs…'
+    $('vid').style.display = ''
+    $('emb').style.display = 'none'
 
     if (!state.client) state.client = new WebTorrent()
     if (state.activeTorrent) { state.activeTorrent.destroy(); state.activeTorrent = null }
 
-    const vid = document.getElementById('video-player')
-    vid.style.display = ''
-    document.getElementById('embed-player').style.display = 'none'
-    const player = _initPlyr()
-
+    const player = _plyr()
     const torrent = state.client.add(magnet, { announce: [
       'wss://tracker.btorrent.xyz',
       'wss://tracker.openwebtorrent.com',
-      'wss://tracker.fastcast.nz'
+      'wss://tracker.fastcast.nz',
     ]})
     state.activeTorrent = torrent
 
     torrent.on('error', err => {
-      toast('Erreur torrent — essaie un embed')
-      document.getElementById('ps-text').textContent = 'Erreur: ' + err.message
+      $('dl-text').textContent = 'Erreur — essaie un lecteur intégré'
+      toast('Erreur torrent')
     })
 
     torrent.on('ready', () => {
-      const file = torrent.files.reduce((a, b) => a.length > b.length ? a : b)
-      file.renderTo(vid)
-      document.getElementById('ps-text').textContent = 'Buffering…'
-      _loadSubtitles(player)
+      const file = torrent.files.reduce((a,b) => a.length > b.length ? a : b)
+      file.renderTo($('vid'))
+      $('dl-text').textContent = 'Buffering…'
+      _loadSubs(player)
     })
 
     torrent.on('download', () => {
       const pct = Math.round(torrent.progress * 100)
-      document.getElementById('ps-bar').style.width = pct + '%'
-      document.getElementById('ps-text').textContent = `${pct}% · ${(torrent.downloadSpeed/1024/1024).toFixed(1)} MB/s`
-      document.getElementById('ps-peers').textContent = `${torrent.numPeers} pairs`
+      $('dl-fill').style.width = pct + '%'
+      $('dl-text').textContent = `${pct}% · ${(torrent.downloadSpeed/1024/1024).toFixed(1)} MB/s`
+      $('dl-peers').textContent = `${torrent.numPeers} pairs`
     })
 
-    torrent.on('done', () => {
-      document.getElementById('ps-text').textContent = 'Téléchargé ✓'
-      document.getElementById('ps-bar').style.width = '100%'
-    })
+    torrent.on('done', () => { $('dl-text').textContent = 'Téléchargé ✓'; $('dl-fill').style.width = '100%' })
 
     setTimeout(() => {
       if (!torrent.numPeers && !torrent.progress) {
-        toast('Aucun pair — essaie un embed')
-        document.getElementById('ps-text').textContent = 'Aucun pair — essaie un lecteur intégré'
+        $('dl-text').textContent = 'Aucun pair — essaie un lecteur intégré'
+        toast('Aucun pair trouvé')
       }
     }, 15000)
   }
 
-  async function _loadSubtitles(player) {
+  async function _loadSubs(player) {
     const details = state.currentDetails
     const imdbId = details ? TMDB.imdbId(details) : null
     if (!imdbId) return
@@ -435,57 +425,36 @@ const app = (() => {
       const r = await fetch(`/api/subtitles?imdb=${imdbId}&lang=fre`)
       const subs = await r.json()
       if (!Array.isArray(subs) || !subs.length) return
-      // pick best French sub (most downloads)
-      const best = subs.sort((a, b) => (parseInt(b.SubDownloadsCnt) || 0) - (parseInt(a.SubDownloadsCnt) || 0))[0]
+      const best = subs.sort((a,b) => (parseInt(b.SubDownloadsCnt)||0)-(parseInt(a.SubDownloadsCnt)||0))[0]
       if (!best?.SubDownloadLink) return
-      // fetch .srt via proxy to avoid CORS
       const srtR = await fetch(`/api/subtitles?imdb=${imdbId}&lang=fre&url=${encodeURIComponent(best.SubDownloadLink)}`)
-      // Plyr uses VTT tracks — add as blob URL
-      const srtText = await srtR.text()
-      const vtt = _srt2vtt(srtText)
+      const vtt = 'WEBVTT\n\n' + (await srtR.text()).replace(/\r/g,'').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2')
       const blob = new Blob([vtt], { type: 'text/vtt' })
-      const burl = URL.createObjectURL(blob)
       const track = document.createElement('track')
       track.kind = 'captions'; track.label = 'Français'; track.srclang = 'fr'
-      track.src = burl; track.default = true
-      document.getElementById('video-player').appendChild(track)
+      track.src = URL.createObjectURL(blob); track.default = true
+      $('vid').appendChild(track)
       player.currentTrack = 0
     } catch {}
   }
 
-  function _srt2vtt(srt) {
-    return 'WEBVTT\n\n' + srt.replace(/\r/g, '').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')
+  function toggleFS() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen()
+    else document.exitFullscreen()
   }
 
-  // ── settings ─────────────────────────────────────────────────────────────
-
-  function openSettings() {
-    document.getElementById('settings-modal').classList.add('open')
-  }
-
-  function closeSettings() {
-    document.getElementById('settings-modal').classList.remove('open')
-  }
-
-  function saveSettings() {
-    closeSettings()
-    toast('Sauvegardé')
-  }
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-    } else {
-      document.exitFullscreen()
-    }
+  function _quality(name) {
+    if (/2160p|4K/i.test(name)) return '4K'
+    if (/1080p/i.test(name)) return '1080p'
+    if (/720p/i.test(name)) return '720p'
+    return ''
   }
 
   return {
-    init, playHero, openDetails, closeModal,
-    showSources, closeSourceModal,
-    closePlayer, startStream, startEmbed,
-    openSettings, closeSettings, saveSettings,
-    toggleFullscreen,
+    init, playHero, playHeroInfo,
+    openDetail, closeDetail,
+    showSources, closeSource,
+    closePlayer, toggleFS,
   }
 })()
 

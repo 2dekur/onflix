@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Onflix</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── nav ── -->
+<nav id="navbar">
+  <div class="nav-logo">
+    <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ng" x1="15%" y1="0%" x2="85%" y2="100%">
+          <stop offset="0%" stop-color="#F87171"/>
+          <stop offset="100%" stop-color="#F97316"/>
+        </linearGradient>
+        <mask id="nr"><circle cx="50" cy="50" r="46" fill="white"/><circle cx="50" cy="50" r="27" fill="black"/></mask>
+      </defs>
+      <circle cx="50" cy="50" r="46" fill="url(#ng)" mask="url(#nr)"/>
+      <polygon points="44,36 44,64 68,50" fill="white" opacity="0.85"/>
+    </svg>
+    <span class="nav-brand">Onflix</span>
+  </div>
+
+  <div class="nav-links">
+    <button data-page="home"   class="active">Accueil</button>
+    <button data-page="movies">Films</button>
+    <button data-page="series">Séries</button>
+    <button data-page="anime" >Animé</button>
+  </div>
+
+  <div class="nav-right">
+    <div class="nav-search">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="search-input" type="text" placeholder="Rechercher…" autocomplete="off">
+    </div>
+    <button id="btn-settings" class="nav-icon-btn" title="Paramètres">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+</nav>
+
+<!-- ── main ── -->
+<main id="app">
+
+  <!-- onboarding -->
+  <div id="onboarding">
+    <svg width="72" height="72" viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="og" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#F87171"/><stop offset="100%" stop-color="#F97316"/>
+        </linearGradient>
+        <mask id="om"><circle cx="50" cy="50" r="46" fill="white"/><circle cx="50" cy="50" r="27" fill="black"/></mask>
+      </defs>
+      <circle cx="50" cy="50" r="46" fill="url(#og)" mask="url(#om)"/>
+      <polygon points="44,36 44,64 68,50" fill="white" opacity="0.85"/>
+    </svg>
+    <h2>Bienvenue sur Onflix</h2>
+    <p>Entre ta clé API TMDB gratuite.<br>Obtiens-la sur <a href="https://themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a></p>
+    <input id="apikey-input" type="text" placeholder="Colle ta clé API TMDB ici…" autocomplete="off" spellcheck="false">
+    <button class="btn-play" id="btn-save-key">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>
+      Démarrer
+    </button>
+  </div>
+
+  <!-- home -->
+  <div id="home-page" class="hidden">
+    <div id="hero" onclick="app.playHero()">
+      <img id="hero-img" src="" alt="">
+      <div id="hero-overlay"></div>
+      <div id="hero-content">
+        <div id="hero-badge">À LA UNE</div>
+        <div id="hero-title"></div>
+        <div id="hero-meta"></div>
+        <div id="hero-desc"></div>
+        <button class="btn-play" onclick="event.stopPropagation();app.playHero()">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>
+          Regarder
+        </button>
+      </div>
+    </div>
+    <div id="sections"></div>
+  </div>
+
+  <!-- search -->
+  <div id="search-page" class="hidden">
+    <h2 id="search-heading">Résultats</h2>
+    <div class="search-grid" id="search-grid"></div>
+  </div>
+
+</main>
+
+<!-- ── detail modal ── -->
+<div id="modal-bg" onclick="if(event.target===this)app.closeModal()">
+  <div id="modal">
+    <button class="modal-close" onclick="app.closeModal()">&#10005;</button>
+    <img id="modal-backdrop" class="modal-backdrop" src="" alt="">
+    <div class="modal-backdrop-overlay"></div>
+    <div class="modal-body">
+      <img id="modal-poster" class="modal-poster" src="" alt="">
+      <div class="modal-info">
+        <div id="modal-title"  class="modal-title"></div>
+        <div id="modal-meta"   class="modal-meta"></div>
+        <div id="modal-desc"   class="modal-desc"></div>
+        <div id="modal-actions" class="modal-actions"></div>
+      </div>
+      <div id="modal-seasons" class="modal-seasons" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── source picker ── -->
+<div id="source-modal" onclick="if(event.target===this)app.closeSourceModal()">
+  <div class="source-box">
+    <h3 id="source-title">Choisir la source</h3>
+    <div class="sub" id="source-sub">Sélectionne la qualité</div>
+    <div class="source-list" id="source-list"></div>
+    <div class="source-actions">
+      <button class="btn-cancel" onclick="app.closeSourceModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── player ── -->
+<div id="player-section">
+  <div id="player-topbar">
+    <button class="player-back" onclick="app.closePlayer()">&#8592;</button>
+    <span id="player-title" class="player-title"></span>
+  </div>
+  <video id="video-player" controls preload="metadata"></video>
+  <iframe id="embed-player" allowfullscreen allow="autoplay; encrypted-media; fullscreen" style="display:none"></iframe>
+  <div id="player-status">
+    <span id="ps-text">Connexion…</span>
+    <div class="ps-bar-wrap"><div class="ps-bar" id="ps-bar" style="width:0%"></div></div>
+    <span id="ps-peers"></span>
+  </div>
+</div>
+
+<!-- ── settings ── -->
+<div id="settings-modal" onclick="if(event.target===this)app.closeSettings()">
+  <div class="settings-box">
+    <h2>Paramètres</h2>
+    <div class="settings-field">
+      <label>Clé API TMDB</label>
+      <input id="s-tmdb-key" type="text" placeholder="ta clé TMDB…" autocomplete="off" spellcheck="false">
+      <div class="settings-hint">Gratuite sur <a href="https://themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a></div>
+    </div>
+    <div class="settings-actions">
+      <button class="btn-cancel" onclick="app.closeSettings()">Annuler</button>
+      <button class="btn-save"   onclick="app.saveSettings()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/webtorrent@1.9.7/webtorrent.min.js"></script>
+<script src="tmdb.js"></script>
+<script src="sources.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,6 +1,30 @@
 window.Sources = {
 
-  // ── TPB ───────────────────────────────────────────────────────────────────
+  // ── Torrentio (agrège TPB, 1337x, RARBG, YTS, etc.) ─────────────────────
+  // API publique Stremio — pas de CORS issue
+
+  async torrentio(imdbId, type, season, episode) {
+    if (!imdbId) return []
+    try {
+      const id = type === 'tv'
+        ? `${imdbId}:${season}:${episode}`
+        : imdbId
+      const r = await fetch(`https://torrentio.strem.fun/stream/${type === 'tv' ? 'series' : 'movie'}/${id}.json`)
+      const j = await r.json()
+      return (j.streams || [])
+        .filter(s => s.infoHash)
+        .map(s => ({
+          label: s.title || s.name || 'Torrentio',
+          magnet: `magnet:?xt=urn:btih:${s.infoHash}&dn=${encodeURIComponent(s.title||'')}&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce`,
+          seeds: parseInt((s.title||'').match(/👤\s*(\d+)/)?.[1] || 0),
+          size: (s.title||'').match(/💾\s*([0-9.,]+ ?[KMGT]B)/i)?.[1] || '',
+          source: 'Torrentio',
+          fr: _isFr(s.title||''),
+        }))
+    } catch { return [] }
+  },
+
+  // ── TPB (apibay.org) ──────────────────────────────────────────────────────
 
   async tpb(query, cat = 0) {
     try {
@@ -19,7 +43,7 @@ window.Sources = {
     } catch { return [] }
   },
 
-  // ── YTS ───────────────────────────────────────────────────────────────────
+  // ── YTS (films, qualité 4K/1080p) ────────────────────────────────────────
 
   async yts(title, year) {
     try {
@@ -29,7 +53,8 @@ window.Sources = {
       const match = movies.find(m => String(m.year) === String(year)) || movies[0]
       if (!match) return []
       return (match.torrents || [])
-        .sort((a,b) => _qRank(b.quality) - _qRank(a.quality))
+        .sort((a,b) => _qRank(_parseQ(a.quality+' '+a.type)) - _qRank(_parseQ(b.quality+' '+b.type)))
+        .reverse()
         .map(t => ({
           label: `[YTS] ${match.title} ${t.quality} ${t.type}`,
           magnet: `magnet:?xt=urn:btih:${t.hash}&dn=${encodeURIComponent(match.title_long)}&tr=udp%3A%2F%2Fopen.demonii.com%3A1337%2Fannounce`,
@@ -38,7 +63,7 @@ window.Sources = {
     } catch { return [] }
   },
 
-  // ── EZTV ──────────────────────────────────────────────────────────────────
+  // ── EZTV (séries anglais) ─────────────────────────────────────────────────
 
   async eztv(imdbId, season, episode) {
     try {
@@ -53,7 +78,7 @@ window.Sources = {
     } catch { return [] }
   },
 
-  // ── Nyaa proxy ────────────────────────────────────────────────────────────
+  // ── Nyaa (anime) ──────────────────────────────────────────────────────────
 
   async nyaa(title) {
     try {
@@ -70,7 +95,7 @@ window.Sources = {
   // ── getAllTorrent ──────────────────────────────────────────────────────────
 
   async getAllTorrent(item, details, season, episode) {
-    const type = TMDB.type(item)
+    const type  = TMDB.type(item)
     const title = TMDB.origTitle(item)
     const year  = TMDB.year(item)
     const imdbId = TMDB.imdbId(details)
@@ -79,10 +104,13 @@ window.Sources = {
     if (type === 'movie') {
       const q = `${title} ${year}`
       const all = await Promise.allSettled([
+        this.torrentio(imdbId, 'movie'),
         this.yts(title, year),
+        this.tpb(`${q} 2160p FRENCH`),
+        this.tpb(`${q} 1080p FRENCH`),
         this.tpb(`${q} FRENCH`),
-        this.tpb(`${q} VF`),
         this.tpb(`${q} TRUEFRENCH`),
+        this.tpb(`${q} VF`),
         this.tpb(q),
       ])
       results = _merge(...all.map(r => r.value||[]))
@@ -91,17 +119,20 @@ window.Sources = {
       const ep = `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}`
       const q = `${title} ${ep}`
       const all = await Promise.allSettled([
+        this.torrentio(imdbId, 'tv', season, episode),
         imdbId ? this.eztv(imdbId, season, episode) : Promise.resolve([]),
+        this.tpb(`${q} 1080p FRENCH`),
         this.tpb(`${q} FRENCH`),
-        this.tpb(`${q} VF`),
         this.tpb(`${q} VOSTFR`),
-        this.tpb(`${q} VFF`),
+        this.tpb(`${q} VF`),
         this.tpb(q),
       ])
       results = _merge(...all.map(r => r.value||[]))
     }
     else {
       const all = await Promise.allSettled([
+        this.torrentio(imdbId, 'movie'),
+        this.tpb(`${title} 1080p FRENCH`),
         this.tpb(`${title} FRENCH`),
         this.tpb(`${title} VOSTFR`),
         this.nyaa(title),
@@ -110,21 +141,39 @@ window.Sources = {
       results = _merge(...all.map(r => r.value||[]))
     }
 
-    return results.sort((a,b) => (b.fr?1:0)-(a.fr?1:0) || _qRank(_parseQ(b.label))-_qRank(_parseQ(a.label)) || (b.seeds||0)-(a.seeds||0))
+    return results.sort((a,b) =>
+      (b.fr?1:0) - (a.fr?1:0) ||
+      _qRank(_parseQ(b.label)) - _qRank(_parseQ(a.label)) ||
+      (b.seeds||0) - (a.seeds||0)
+    )
   },
+
+  // ── embedUrls ─────────────────────────────────────────────────────────────
 
   embedUrls(imdbId, tmdbId, type, season, episode) {
     if (!tmdbId) return []
     const s = season||1, e = episode||1
     const mv = type === 'movie'
-    if (mv) return [
-      { label: 'VOSTFR 1', url: `https://cinesrc.st/embed/movie/${tmdbId}` },
-      { label: 'VOSTFR 2', url: `https://vidsrc.sbs/embed/movie/${tmdbId}` },
-    ]
-    return [
-      { label: 'VOSTFR 1', url: `https://cinesrc.st/embed/tv/${tmdbId}?s=${s}&e=${e}` },
-      { label: 'VOSTFR 2', url: `https://vidsrc.sbs/embed/tv/${tmdbId}/${s}/${e}` },
-    ]
+    const urls = []
+    if (mv) {
+      urls.push({ label: 'VOSTFR 1',  url: `https://cinesrc.st/embed/movie/${tmdbId}` })
+      urls.push({ label: 'VOSTFR 2',  url: `https://vidsrc.sbs/embed/movie/${tmdbId}` })
+      urls.push({ label: 'VidSrc',    url: `https://vidsrc.to/embed/movie/${tmdbId}` })
+      urls.push({ label: 'EmbedSu',   url: `https://embed.su/embed/movie/${tmdbId}` })
+      urls.push({ label: 'AutoEmbed', url: `https://autoembed.co/movie/tmdb/${tmdbId}` })
+    } else {
+      urls.push({ label: 'VOSTFR 1',  url: `https://cinesrc.st/embed/tv/${tmdbId}?s=${s}&e=${e}` })
+      urls.push({ label: 'VOSTFR 2',  url: `https://vidsrc.sbs/embed/tv/${tmdbId}/${s}/${e}` })
+      urls.push({ label: 'VidSrc',    url: `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}` })
+      urls.push({ label: 'EmbedSu',   url: `https://embed.su/embed/tv/${tmdbId}/${s}/${e}` })
+      urls.push({ label: 'AutoEmbed', url: `https://autoembed.co/tv/tmdb/${tmdbId}-${s}-${e}` })
+    }
+    if (imdbId) {
+      urls.push(mv
+        ? { label: '2Embed', url: `https://www.2embed.cc/embed/${imdbId}` }
+        : { label: '2Embed', url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` })
+    }
+    return urls
   },
 }
 
@@ -135,7 +184,7 @@ function _isFr(name) {
 }
 
 function _parseQ(name) {
-  if (/2160p|4K/i.test(name)) return '4K'
+  if (/2160p|4K|UHD/i.test(name)) return '4K'
   if (/1080p/i.test(name)) return '1080p'
   if (/720p/i.test(name)) return '720p'
   return ''

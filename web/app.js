@@ -431,11 +431,23 @@ const app = (() => {
     toast('Sauvegardé')
   }
 
+  function toggleFullscreen() {
+    const section = document.getElementById('player-section')
+    const vid = document.getElementById('video-player')
+    const target = vid.style.display !== 'none' ? vid : section
+    if (!document.fullscreenElement) {
+      target.requestFullscreen().catch(() => section.requestFullscreen())
+    } else {
+      document.exitFullscreen()
+    }
+  }
+
   return {
     init, playHero, openDetails, closeModal,
     showSources, closeSourceModal,
     closePlayer, startStream, startEmbed,
     openSettings, closeSettings, saveSettings,
+    toggleFullscreen,
   }
 })()
 

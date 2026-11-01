@@ -8,8 +8,10 @@ export async function onRequest(context) {
 
   const tmdbUrl = new URL('https://api.themoviedb.org/3' + path)
   tmdbUrl.searchParams.set('api_key', key)
+  tmdbUrl.searchParams.set('language', 'fr-FR')
+  tmdbUrl.searchParams.set('region', 'FR')
   for (const [k, v] of url.searchParams) {
-    if (k !== 'path') tmdbUrl.searchParams.set(k, v)
+    if (k !== 'path' && k !== 'language' && k !== 'region') tmdbUrl.searchParams.set(k, v)
   }
 
   const r = await fetch(tmdbUrl)

@@ -122,21 +122,29 @@ window.Sources = {
   embedUrls(imdbId, tmdbId, type, season, episode) {
     const s = season || 1, e = episode || 1
     const urls = []
-    if (imdbId) {
-      if (type === 'movie') {
-        urls.push({ label: 'VidSrc',    url: `https://vidsrc.me/embed/movie?imdb=${imdbId}` })
-        urls.push({ label: '2Embed',    url: `https://www.2embed.cc/embed/${imdbId}` })
-        urls.push({ label: 'SuperEmbed',url: `https://multiembed.mov/?video_id=${imdbId}&tmdb=0` })
+    const isMovie = type === 'movie'
+    if (tmdbId) {
+      if (isMovie) {
+        urls.push({ label: 'VidSrc',      url: `https://vidsrc.to/embed/movie/${tmdbId}` })
+        urls.push({ label: 'VidSrc 2',    url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` })
+        urls.push({ label: 'EmbedSu',     url: `https://embed.su/embed/movie/${tmdbId}` })
+        urls.push({ label: 'MoviesAPI',   url: `https://moviesapi.club/movie/${tmdbId}` })
+        urls.push({ label: 'AutoEmbed',   url: `https://autoembed.co/movie/tmdb/${tmdbId}` })
+        urls.push({ label: 'MultiEmbed',  url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1` })
       } else {
-        urls.push({ label: 'VidSrc',    url: `https://vidsrc.me/embed/tv?imdb=${imdbId}&season=${s}&episode=${e}` })
-        urls.push({ label: '2Embed',    url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` })
+        urls.push({ label: 'VidSrc',      url: `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}` })
+        urls.push({ label: 'VidSrc 2',    url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}` })
+        urls.push({ label: 'EmbedSu',     url: `https://embed.su/embed/tv/${tmdbId}/${s}/${e}` })
+        urls.push({ label: 'MoviesAPI',   url: `https://moviesapi.club/tv/${tmdbId}-${s}-${e}` })
+        urls.push({ label: 'AutoEmbed',   url: `https://autoembed.co/tv/tmdb/${tmdbId}-${s}-${e}` })
+        urls.push({ label: 'MultiEmbed',  url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${s}&e=${e}` })
       }
     }
-    if (tmdbId) {
-      if (type === 'movie') {
-        urls.push({ label: 'VidSrc TMDB', url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}` })
+    if (imdbId) {
+      if (isMovie) {
+        urls.push({ label: '2Embed',      url: `https://www.2embed.cc/embed/${imdbId}` })
       } else {
-        urls.push({ label: 'VidSrc TMDB', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}` })
+        urls.push({ label: '2Embed',      url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` })
       }
     }
     return urls

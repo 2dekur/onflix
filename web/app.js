@@ -7,6 +7,7 @@ const app = (() => {
     client: null,
     activeTorrent: null,
     searchTimer: null,
+    plyr: null,
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -333,6 +334,18 @@ const app = (() => {
 
   // ── player ───────────────────────────────────────────────────────────────
 
+  function _initPlyr() {
+    if (state.plyr) return state.plyr
+    const vid = document.getElementById('video-player')
+    state.plyr = new Plyr(vid, {
+      controls: ['play-large','play','rewind','fast-forward','progress','current-time','duration','mute','volume','captions','settings','fullscreen'],
+      settings: ['captions','quality','speed'],
+      captions: { active: true, language: 'fr', update: true },
+      i18n: { play: 'Lecture', pause: 'Pause', mute: 'Muet', settings: 'Paramètres', fullscreen: 'Plein écran' }
+    })
+    return state.plyr
+  }
+
   function openPlayer(title) {
     document.getElementById('player-title').textContent = title
     document.getElementById('player-section').classList.add('open')
@@ -344,13 +357,12 @@ const app = (() => {
   function closePlayer() {
     const vid = document.getElementById('video-player')
     const emb = document.getElementById('embed-player')
-    vid.pause(); vid.src = ''; vid.style.display = ''
+    if (state.plyr) { state.plyr.pause(); state.plyr.source = null }
+    else { vid.pause(); vid.src = '' }
+    vid.style.display = ''
     emb.src = ''; emb.style.display = 'none'
     document.getElementById('player-section').classList.remove('open')
-    if (state.activeTorrent) {
-      state.activeTorrent.destroy()
-      state.activeTorrent = null
-    }
+    if (state.activeTorrent) { state.activeTorrent.destroy(); state.activeTorrent = null }
   }
 
   function startEmbed(url, title) {
@@ -364,22 +376,17 @@ const app = (() => {
     document.getElementById('ps-bar').style.width = '100%'
   }
 
-  function startStream(magnet, title) {
+  async function startStream(magnet, title) {
     openPlayer(title)
     document.getElementById('ps-text').textContent = 'Connexion aux pairs…'
 
-    if (!state.client) {
-      state.client = new WebTorrent()
-    }
-
-    if (state.activeTorrent) {
-      state.activeTorrent.destroy()
-      state.activeTorrent = null
-    }
+    if (!state.client) state.client = new WebTorrent()
+    if (state.activeTorrent) { state.activeTorrent.destroy(); state.activeTorrent = null }
 
     const vid = document.getElementById('video-player')
     vid.style.display = ''
     document.getElementById('embed-player').style.display = 'none'
+    const player = _initPlyr()
 
     const torrent = state.client.add(magnet, { announce: [
       'wss://tracker.btorrent.xyz',
@@ -397,26 +404,57 @@ const app = (() => {
       const file = torrent.files.reduce((a, b) => a.length > b.length ? a : b)
       file.renderTo(vid)
       document.getElementById('ps-text').textContent = 'Buffering…'
+      _loadSubtitles(player)
     })
 
     torrent.on('download', () => {
       const pct = Math.round(torrent.progress * 100)
       document.getElementById('ps-bar').style.width = pct + '%'
-      document.getElementById('ps-text').textContent = `${pct}% · ${(torrent.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s`
+      document.getElementById('ps-text').textContent = `${pct}% · ${(torrent.downloadSpeed/1024/1024).toFixed(1)} MB/s`
       document.getElementById('ps-peers').textContent = `${torrent.numPeers} pairs`
     })
 
     torrent.on('done', () => {
-      document.getElementById('ps-text').textContent = 'Téléchargé'
+      document.getElementById('ps-text').textContent = 'Téléchargé ✓'
       document.getElementById('ps-bar').style.width = '100%'
     })
 
     setTimeout(() => {
-      if (torrent.numPeers === 0 && !torrent.progress) {
-        toast('Aucun pair trouvé — essaie un embed')
+      if (!torrent.numPeers && !torrent.progress) {
+        toast('Aucun pair — essaie un embed')
         document.getElementById('ps-text').textContent = 'Aucun pair — essaie un lecteur intégré'
       }
     }, 15000)
+  }
+
+  async function _loadSubtitles(player) {
+    const details = state.currentDetails
+    const imdbId = details ? TMDB.imdbId(details) : null
+    if (!imdbId) return
+    try {
+      const r = await fetch(`/api/subtitles?imdb=${imdbId}&lang=fre`)
+      const subs = await r.json()
+      if (!Array.isArray(subs) || !subs.length) return
+      // pick best French sub (most downloads)
+      const best = subs.sort((a, b) => (parseInt(b.SubDownloadsCnt) || 0) - (parseInt(a.SubDownloadsCnt) || 0))[0]
+      if (!best?.SubDownloadLink) return
+      // fetch .srt via proxy to avoid CORS
+      const srtR = await fetch(`/api/subtitles?imdb=${imdbId}&lang=fre&url=${encodeURIComponent(best.SubDownloadLink)}`)
+      // Plyr uses VTT tracks — add as blob URL
+      const srtText = await srtR.text()
+      const vtt = _srt2vtt(srtText)
+      const blob = new Blob([vtt], { type: 'text/vtt' })
+      const burl = URL.createObjectURL(blob)
+      const track = document.createElement('track')
+      track.kind = 'captions'; track.label = 'Français'; track.srclang = 'fr'
+      track.src = burl; track.default = true
+      document.getElementById('video-player').appendChild(track)
+      player.currentTrack = 0
+    } catch {}
+  }
+
+  function _srt2vtt(srt) {
+    return 'WEBVTT\n\n' + srt.replace(/\r/g, '').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')
   }
 
   // ── settings ─────────────────────────────────────────────────────────────

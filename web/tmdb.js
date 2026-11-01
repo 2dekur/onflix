@@ -5,6 +5,7 @@ window.TMDB = {
   poster:   (p, size = 'w500')  => p ? `${TMDB_IMG}/${size}${p}` : 'no-poster.svg',
   backdrop: (p, size = 'w1280') => p ? `${TMDB_IMG}/${size}${p}` : null,
   title:    (item) => item.title || item.name || '?',
+  origTitle:(item) => item.original_title || item.original_name || item.title || item.name || '?',
   year:     (item) => (item.release_date || item.first_air_date || '').slice(0, 4),
   type:     (item) => item.media_type || (item.first_air_date !== undefined ? 'tv' : 'movie'),
   imdbId:   (d)   => d.external_ids?.imdb_id || null,

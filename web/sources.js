@@ -74,7 +74,7 @@ window.Sources = {
 
   async getAllTorrent(item, details, season, episode) {
     const type = TMDB.type(item)
-    const title = TMDB.title(item)
+    const title = TMDB.origTitle(item)
     const year  = TMDB.year(item)
     const imdbId = TMDB.imdbId(details)
     let results = []

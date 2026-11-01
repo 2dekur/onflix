@@ -30,40 +30,17 @@ const app = (() => {
   // ── init ─────────────────────────────────────────────────────────────────
 
   async function init() {
-    const key = getSetting('tmdbKey')
-    if (!key) { showOnboarding(); return }
     showHome()
     loadHome()
     bindNav()
     bindSearch()
     document.getElementById('btn-settings').onclick = openSettings
-    document.getElementById('btn-save-key').onclick = saveFirstKey
-    document.getElementById('apikey-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') saveFirstKey()
-    })
-  }
-
-  function showOnboarding() {
-    document.getElementById('onboarding').style.display = ''
-    document.getElementById('home-page').classList.add('hidden')
-    document.getElementById('navbar').style.display = 'none'
   }
 
   function showHome() {
     document.getElementById('onboarding').style.display = 'none'
     document.getElementById('home-page').classList.remove('hidden')
     document.getElementById('navbar').style.display = ''
-  }
-
-  function saveFirstKey() {
-    const v = document.getElementById('apikey-input').value.trim()
-    if (!v) { toast('Colle ta clé TMDB'); return }
-    setSetting('tmdbKey', v)
-    showHome()
-    loadHome()
-    bindNav()
-    bindSearch()
-    document.getElementById('btn-settings').onclick = openSettings
   }
 
   function bindNav() {
@@ -442,7 +419,6 @@ const app = (() => {
   // ── settings ─────────────────────────────────────────────────────────────
 
   function openSettings() {
-    document.getElementById('s-tmdb-key').value = getSetting('tmdbKey')
     document.getElementById('settings-modal').classList.add('open')
   }
 
@@ -451,11 +427,8 @@ const app = (() => {
   }
 
   function saveSettings() {
-    const key = document.getElementById('s-tmdb-key').value.trim()
-    if (key) setSetting('tmdbKey', key)
     closeSettings()
     toast('Sauvegardé')
-    if (key) loadHome()
   }
 
   return {

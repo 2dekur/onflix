@@ -10,10 +10,8 @@ window.TMDB = {
   imdbId:   (d)   => d.external_ids?.imdb_id || null,
 
   async _get(path, params = {}) {
-    const key = localStorage.getItem('tmdbKey')
-    if (!key) throw Object.assign(new Error('NO_API_KEY'), { code: 'NO_API_KEY' })
-    const url = new URL(TMDB_BASE + path)
-    url.searchParams.set('api_key', key)
+    const url = new URL('/api/tmdb', location.origin)
+    url.searchParams.set('path', path)
     url.searchParams.set('language', 'fr-FR')
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v))
     const r = await fetch(url)

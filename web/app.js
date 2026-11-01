@@ -266,25 +266,38 @@ const app = (() => {
     const imdbId = TMDB.imdbId(details)
     const tmdbId = item.id
 
-    const allTorrents = await Sources.getAllTorrent(item, details, season, episode).catch(() => [])
+    const [allTorrents, embeds] = await Promise.all([
+      Sources.getAllTorrent(item, details, season, episode).catch(() => []),
+      Promise.resolve(Sources.embedUrls(imdbId, tmdbId, type === 'tv' ? 'tv' : 'movie', season, episode)),
+    ])
     const torrents = allTorrents.filter(t => t.fr)
 
     $('src-list').innerHTML = ''
 
-    if (!torrents.length) {
-      $('src-list').innerHTML = `<div class="src-loading">
-        <div style="font-size:2rem;margin-bottom:8px">🇫🇷</div>
-        <div style="font-weight:600;margin-bottom:4px">Aucun torrent VF trouvé</div>
-        <div style="font-size:.8rem;color:var(--text2)">Pas de source FRENCH/VF/VOSTFR disponible pour ce titre</div>
-      </div>`
-      return
+    const _hdr = (text) => {
+      const d = document.createElement('div')
+      d.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px'
+      d.textContent = text
+      return d
     }
 
-    const hdr = document.createElement('div')
-    hdr.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px'
-    hdr.textContent = `Torrents VF (${torrents.length})`
-    $('src-list').appendChild(hdr)
-    torrents.forEach(t => $('src-list').appendChild(makeSrcItem(t, () => { closeSource(); startStream(t.magnet, TMDB.title(item)) })))
+    if (torrents.length) {
+      $('src-list').appendChild(_hdr(`🇫🇷 Torrents VF (${torrents.length})`))
+      torrents.forEach(t => $('src-list').appendChild(makeSrcItem(t, () => { closeSource(); startStream(t.magnet, TMDB.title(item)) })))
+    }
+
+    if (embeds.length) {
+      $('src-list').appendChild(_hdr(`Lecteurs VOSTFR`))
+      embeds.forEach(e => $('src-list').appendChild(makeEmbedItem(e, () => { closeSource(); startEmbed(e.url, TMDB.title(item)) })))
+    }
+
+    if (!torrents.length && !embeds.length) {
+      $('src-list').innerHTML = `<div class="src-loading">
+        <div style="font-size:2rem;margin-bottom:8px">🇫🇷</div>
+        <div style="font-weight:600;margin-bottom:4px">Aucune source trouvée</div>
+        <div style="font-size:.8rem;color:var(--text2)">Pas de torrent VF ni lecteur disponible pour ce titre</div>
+      </div>`
+    }
   }
 
   function makeSrcItem(t, onclick) {

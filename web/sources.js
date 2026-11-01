@@ -113,7 +113,19 @@ window.Sources = {
     return results.sort((a,b) => (b.fr?1:0)-(a.fr?1:0) || _qRank(_parseQ(b.label))-_qRank(_parseQ(a.label)) || (b.seeds||0)-(a.seeds||0))
   },
 
-  embedUrls() { return [] },
+  embedUrls(imdbId, tmdbId, type, season, episode) {
+    if (!tmdbId) return []
+    const s = season||1, e = episode||1
+    const mv = type === 'movie'
+    if (mv) return [
+      { label: 'VOSTFR 1', url: `https://cinesrc.st/embed/movie/${tmdbId}` },
+      { label: 'VOSTFR 2', url: `https://vidsrc.sbs/embed/movie/${tmdbId}` },
+    ]
+    return [
+      { label: 'VOSTFR 1', url: `https://cinesrc.st/embed/tv/${tmdbId}?s=${s}&e=${e}` },
+      { label: 'VOSTFR 2', url: `https://vidsrc.sbs/embed/tv/${tmdbId}/${s}/${e}` },
+    ]
+  },
 }
 
 // ── utils ──────────────────────────────────────────────────────────────────

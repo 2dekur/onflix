@@ -310,7 +310,10 @@ const app = (() => {
     torrents.forEach(t => {
       const div = document.createElement('div')
       div.className = 'source-item'
-      div.innerHTML = `<div class="src-badge">${t.seeds ? t.seeds + ' seeds' : t.source.toUpperCase()}</div><div class="src-info"><div class="src-name">${t.label}</div>${t.size ? `<div class="src-detail">${t.size}</div>` : ''}</div>`
+      const badge = t.fr
+        ? `<div class="src-badge vf">VF 🇫🇷</div>`
+        : `<div class="src-badge">${t.seeds ? t.seeds + ' seeds' : t.source.toUpperCase()}</div>`
+      div.innerHTML = `${badge}<div class="src-info"><div class="src-name">${t.label}</div><div class="src-detail">${t.size || ''}${t.seeds ? ' · ' + t.seeds + ' seeds' : ''}</div></div>`
       div.onclick = () => { closeSourceModal(); startStream(t.magnet, TMDB.title(item)) }
       list.appendChild(div)
     })

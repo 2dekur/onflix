@@ -266,33 +266,25 @@ const app = (() => {
     const imdbId = TMDB.imdbId(details)
     const tmdbId = item.id
 
-    const [torrents, embeds] = await Promise.all([
-      Sources.getAllTorrent(item, details, season, episode).catch(() => []),
-      Promise.resolve(Sources.embedUrls(imdbId, tmdbId, type === 'tv' ? 'tv' : 'movie', season, episode)),
-    ])
+    const allTorrents = await Sources.getAllTorrent(item, details, season, episode).catch(() => [])
+    const torrents = allTorrents.filter(t => t.fr)
 
     $('src-list').innerHTML = ''
 
-    if (!torrents.length && !embeds.length) {
-      $('src-list').innerHTML = '<p class="src-loading">Aucune source trouvée.</p>'
+    if (!torrents.length) {
+      $('src-list').innerHTML = `<div class="src-loading">
+        <div style="font-size:2rem;margin-bottom:8px">🇫🇷</div>
+        <div style="font-weight:600;margin-bottom:4px">Aucun torrent VF trouvé</div>
+        <div style="font-size:.8rem;color:var(--text2)">Pas de source FRENCH/VF/VOSTFR disponible pour ce titre</div>
+      </div>`
       return
     }
 
-    if (torrents.length) {
-      const hdr = document.createElement('div')
-      hdr.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px'
-      hdr.textContent = `Torrents (${torrents.length})`
-      $('src-list').appendChild(hdr)
-      torrents.forEach(t => $('src-list').appendChild(makeSrcItem(t, () => { closeSource(); startStream(t.magnet, TMDB.title(item)) })))
-    }
-
-    if (embeds.length) {
-      const hdr = document.createElement('div')
-      hdr.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px;margin-top:4px'
-      hdr.textContent = `Lecteurs intégrés (${embeds.length})`
-      $('src-list').appendChild(hdr)
-      embeds.forEach(e => $('src-list').appendChild(makeEmbedItem(e, () => { closeSource(); startEmbed(e.url, TMDB.title(item)) })))
-    }
+    const hdr = document.createElement('div')
+    hdr.style.cssText = 'font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);padding:10px 10px 4px'
+    hdr.textContent = `Torrents VF (${torrents.length})`
+    $('src-list').appendChild(hdr)
+    torrents.forEach(t => $('src-list').appendChild(makeSrcItem(t, () => { closeSource(); startStream(t.magnet, TMDB.title(item)) })))
   }
 
   function makeSrcItem(t, onclick) {

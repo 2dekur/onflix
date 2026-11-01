@@ -113,38 +113,7 @@ window.Sources = {
     return results.sort((a,b) => (b.fr?1:0)-(a.fr?1:0) || _qRank(_parseQ(b.label))-_qRank(_parseQ(a.label)) || (b.seeds||0)-(a.seeds||0))
   },
 
-  // ── embedUrls ─────────────────────────────────────────────────────────────
-
-  embedUrls(imdbId, tmdbId, type, season, episode) {
-    const s = season||1, e = episode||1
-    const urls = []
-    const mv = type === 'movie'
-    if (tmdbId) {
-      if (mv) {
-        urls.push({ label: 'VidSrc',     url: `https://vidsrc.to/embed/movie/${tmdbId}` })
-        urls.push({ label: 'VidSrc 2',   url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` })
-        urls.push({ label: 'EmbedSu',    url: `https://embed.su/embed/movie/${tmdbId}` })
-        urls.push({ label: 'MoviesAPI',  url: `https://moviesapi.club/movie/${tmdbId}` })
-        urls.push({ label: 'AutoEmbed',  url: `https://autoembed.co/movie/tmdb/${tmdbId}` })
-        urls.push({ label: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1` })
-        urls.push({ label: 'SmashyStream',url: `https://player.smashy.stream/movie/${tmdbId}` })
-      } else {
-        urls.push({ label: 'VidSrc',     url: `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}` })
-        urls.push({ label: 'VidSrc 2',   url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}` })
-        urls.push({ label: 'EmbedSu',    url: `https://embed.su/embed/tv/${tmdbId}/${s}/${e}` })
-        urls.push({ label: 'MoviesAPI',  url: `https://moviesapi.club/tv/${tmdbId}-${s}-${e}` })
-        urls.push({ label: 'AutoEmbed',  url: `https://autoembed.co/tv/tmdb/${tmdbId}-${s}-${e}` })
-        urls.push({ label: 'MultiEmbed', url: `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${s}&e=${e}` })
-        urls.push({ label: 'SmashyStream',url: `https://player.smashy.stream/tv/${tmdbId}?s=${s}&e=${e}` })
-      }
-    }
-    if (imdbId) {
-      urls.push(mv
-        ? { label: '2Embed', url: `https://www.2embed.cc/embed/${imdbId}` }
-        : { label: '2Embed', url: `https://www.2embed.cc/embedtv/${imdbId}&s=${s}&e=${e}` })
-    }
-    return urls
-  },
+  embedUrls() { return [] },
 }
 
 // ── utils ──────────────────────────────────────────────────────────────────
